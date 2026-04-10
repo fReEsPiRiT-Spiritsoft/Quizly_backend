@@ -9,9 +9,17 @@ from .serializers import QuizSerializer
 from .services import extract_video_id, get_transcript, generate_quiz_from_transcript
 
 
-class QuizCreateView(APIView):
+class QuizListCreateView(APIView):
     authentication_classes = [CookieJWTAuthentication]
     permission_classes     = [IsAuthenticated]
+
+
+    def get(self, request):
+        """Gibt alle Quizzes des eingeloggten Users zurück."""
+        quizzes = Quiz.objects.filter(owner=request.user).prefetch_related('questions')
+        serializer = QuizSerializer(quizzes, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
     def post(self, request):
         url = request.data.get('url', '').strip()

@@ -22,8 +22,7 @@ def extract_video_id(url: str) -> str | None:
 
 def get_transcript(url: str) -> str:
     """
-    Lädt Audio mit yt-dlp herunter (ffmpeg konvertiert zu mp3)
-    und transkribiert es über Gemini Whisper.
+
     """
     client = _get_client()
 
@@ -55,28 +54,25 @@ def get_transcript(url: str) -> str:
                 raise ValueError('Audio download failed — no output file found.')
             audio_file = files[0]
 
-        # Audio über Gemini File API hochladen
         uploaded = client.files.upload(
             file=audio_file,
             config=types.UploadFileConfig(mime_type='audio/mpeg'),
         )
 
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.0-flash',
             contents=[
                 'Transcribe this audio verbatim. Return only the transcript text, nothing else.',
                 uploaded,
             ],
         )
-
-        # Hochgeladene Datei wieder löschen
         client.files.delete(name=uploaded.name)
 
         return response.text.strip()
 
 
 def generate_quiz_from_transcript(transcript: str, video_url: str) -> dict:
-    """Schickt das Transkript an Gemini und bekommt ein strukturiertes Quiz zurück."""
+    """"""
     client = _get_client()
 
     prompt = f"""Based on the following transcript, generate a quiz in valid JSON format.
@@ -107,7 +103,7 @@ Transcript:
 {transcript[:6000]}"""
 
     response = client.models.generate_content(
-        model='gemini-1.5-flash',
+        model='gemini-2.0-flash',
         contents=prompt,
         config=types.GenerateContentConfig(
             response_mime_type='application/json',

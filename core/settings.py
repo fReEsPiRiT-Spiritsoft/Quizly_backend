@@ -33,7 +33,7 @@ SECRET_KEY = 'django-insecure-qeben3v3%0hz7fxgc7me3v0*5w0l%eam&bx0p8lru$!k6&#uqq
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
 
 
 # Application definition
@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
+    'corsheaders',
     'auth',  
     'quiz',
 ]
@@ -71,9 +72,25 @@ SIMPLE_JWT = {
     'AUTH_COOKIE_SAMESITE': 'Lax',
 }
 
+# CORS – erlaubt Frontend-Anfragen inkl. Cookies
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5500",
+    "http://127.0.0.1:5500",
+    "http://localhost:5501",
+    "http://127.0.0.1:5501",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:4200",
+    "http://127.0.0.1:4200",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+]
+CORS_ALLOW_CREDENTIALS = True   # notwendig für HTTP-Only Cookies
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',          # muss vor CommonMiddleware stehen!
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',

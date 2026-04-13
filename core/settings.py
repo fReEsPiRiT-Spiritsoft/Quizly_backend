@@ -13,11 +13,15 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from datetime import timedelta
 from pathlib import Path
 import os
-
-OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# .env aus dem Projektwurzelverzeichnis laden (wird nicht gepusht)
+load_dotenv(BASE_DIR / '.env')
+
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
 
 
 # Quick-start development settings - unsuitable for production

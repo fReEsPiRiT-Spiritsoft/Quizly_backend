@@ -3,9 +3,15 @@ import json
 import os
 import subprocess
 import tempfile
+from pathlib import Path
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from django.conf import settings
+
+
+def _get_client() -> genai.Client:
+    return genai.Client(api_key=settings.GEMINI_API_KEY)
 
 
 def extract_video_id(url: str) -> str | None:
@@ -17,9 +23,9 @@ def extract_video_id(url: str) -> str | None:
 def get_transcript(url: str) -> str:
     """
     Lädt Audio mit yt-dlp herunter (ffmpeg konvertiert zu mp3)
-    und transkribiert es über Gemini.
+    und transkribiert es über Gemini Whisper.
     """
-    genai.configure(api_key=settings.GEMINI_API_KEY)
+    client = _get_client()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         output_template = os.path.join(tmpdir, 'audio.%(ext)s')
@@ -42,31 +48,36 @@ def get_transcript(url: str) -> str:
         if result.returncode != 0:
             raise ValueError(f'yt-dlp error: {result.stderr.strip()}')
 
-        audio_file = os.path.join(tmpdir, 'audio.mp3')
-        if not os.path.exists(audio_file):
-            files = os.listdir(tmpdir)
+        audio_file = Path(tmpdir) / 'audio.mp3'
+        if not audio_file.exists():
+            files = list(Path(tmpdir).iterdir())
             if not files:
                 raise ValueError('Audio download failed — no output file found.')
-            audio_file = os.path.join(tmpdir, files[0])
+            audio_file = files[0]
 
-        # Audio über Gemini File API hochladen und transkribieren
-        uploaded = genai.upload_file(audio_file, mime_type='audio/mpeg')
+        # Audio über Gemini File API hochladen
+        uploaded = client.files.upload(
+            file=audio_file,
+            config=types.UploadFileConfig(mime_type='audio/mpeg'),
+        )
 
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        response = model.generate_content([
-            'Transcribe this audio verbatim. Return only the transcript text, nothing else.',
-            uploaded,
-        ])
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=[
+                'Transcribe this audio verbatim. Return only the transcript text, nothing else.',
+                uploaded,
+            ],
+        )
 
         # Hochgeladene Datei wieder löschen
-        genai.delete_file(uploaded.name)
+        client.files.delete(name=uploaded.name)
 
         return response.text.strip()
 
 
 def generate_quiz_from_transcript(transcript: str, video_url: str) -> dict:
     """Schickt das Transkript an Gemini und bekommt ein strukturiertes Quiz zurück."""
-    genai.configure(api_key=settings.GEMINI_API_KEY)
+    client = _get_client()
 
     prompt = f"""Based on the following transcript, generate a quiz in valid JSON format.
 
@@ -95,14 +106,14 @@ Requirements:
 Transcript:
 {transcript[:6000]}"""
 
-    model = genai.GenerativeModel(
-        'gemini-1.5-flash',
-        generation_config=genai.GenerationConfig(
-            response_mime_type='application/json',   # erzwingt reines JSON, kein Markdown
+    response = client.models.generate_content(
+        model='gemini-1.5-flash',
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            response_mime_type='application/json',
             temperature=0.7,
         ),
     )
-    response = model.generate_content(prompt)
     raw = response.text.strip()
 
     try:

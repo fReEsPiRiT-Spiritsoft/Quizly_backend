@@ -31,9 +31,15 @@ Create a `.env` file in the project root:
 
 ```
 GEMINI_API_KEY=your_gemini_api_key_here
+SECRET_KEY=your_django_secret_key_here
 ```
 
-Get your API key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+Get your Gemini API key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+
+Generate a Django secret key with:
+```bash
+python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+```
 
 > The `.env` file is listed in `.gitignore` and will **not** be pushed to the repository.
 

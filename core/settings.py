@@ -28,7 +28,7 @@ GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-qeben3v3%0hz7fxgc7me3v0*5w0l%eam&bx0p8lru$!k6&#uqq'
+SECRET_KEY = os.environ.get('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True

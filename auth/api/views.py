@@ -12,6 +12,12 @@ from auth.api.serializers import RegisterSerializer, LoginSerializer
 
 
 def _set_auth_cookies(response, refresh):
+    """
+    Attaches JWT access and refresh tokens as HTTP-only cookies to the response.
+
+    Cookie attributes (secure, httponly, samesite, max_age) are read from
+    the SIMPLE_JWT settings block, keeping cookie configuration in one place.
+    """
     jwt_settings = settings.SIMPLE_JWT
     secure   = jwt_settings.get('AUTH_COOKIE_SECURE', False)
     http_only = jwt_settings.get('AUTH_COOKIE_HTTP_ONLY', True)
@@ -33,10 +39,22 @@ def _set_auth_cookies(response, refresh):
 
 
 class RegisterView(APIView):
+    """
+    Public endpoint for creating a new user account.
+
+    POST /api/register/
+    """
+
     authentication_classes = []
     permission_classes = []
 
     def post(self, request):
+        """
+        Validates the registration payload and creates a new user.
+
+        Expects: username, email, password, confirmed_password.
+        Returns 201 on success, 400 if validation fails.
+        """
         serializer = RegisterSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -45,10 +63,23 @@ class RegisterView(APIView):
 
 
 class LoginView(APIView):
+    """
+    Public endpoint for authenticating an existing user.
+
+    POST /api/login/
+    """
+
     authentication_classes = []
     permission_classes = []
 
     def post(self, request):
+        """
+        Authenticates the user and issues JWT tokens via HTTP-only cookies.
+
+        Expects: username, password.
+        Returns 200 with basic user info and sets access_token / refresh_token cookies.
+        Returns 401 if credentials are invalid.
+        """
         serializer = LoginSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -69,10 +100,24 @@ class LoginView(APIView):
 
 
 class LogoutView(APIView):
+    """
+    Protected endpoint that invalidates the current session.
+
+    POST /api/logout/
+    Requires authentication via the access_token cookie.
+    """
+
     authentication_classes = [CookieJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        """
+        Blacklists the refresh token server-side and deletes both auth cookies.
+
+        The refresh token is revoked so it cannot be used to obtain new tokens.
+        Both cookies are deleted regardless of whether the token is still valid
+        (e.g. already expired tokens are silently ignored).
+        """
         refresh_token_str = request.COOKIES.get('refresh_token')
         if refresh_token_str:
             try:
@@ -91,10 +136,23 @@ class LogoutView(APIView):
 
 
 class TokenRefreshView(APIView):
+    """
+    Public endpoint for issuing a new access token using a valid refresh token.
+
+    POST /api/token/refresh/
+    """
+
     authentication_classes = []
     permission_classes = []
 
     def post(self, request):
+        """
+        Reads the refresh token from the cookie, rotates it, and sets fresh tokens.
+
+        If BLACKLIST_AFTER_ROTATION is enabled, the old refresh token is
+        blacklisted and a brand-new pair of tokens is written as HTTP-only cookies.
+        Returns 401 if the refresh token is missing, invalid, or expired.
+        """
         refresh_token_str = request.COOKIES.get('refresh_token')
         if not refresh_token_str:
             return Response({'detail': 'Refresh token missing.'}, status=status.HTTP_401_UNAUTHORIZED)

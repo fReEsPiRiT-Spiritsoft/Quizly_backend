@@ -12,15 +12,39 @@ from quiz.services import extract_video_id, get_transcript, generate_quiz_from_t
 
 
 class QuizListCreateView(APIView):
+    """
+    Handles listing all quizzes and creating a new quiz for the authenticated user.
+
+    GET  /api/quizzes/  — Returns all quizzes owned by the current user.
+    POST /api/quizzes/  — Accepts a YouTube URL and generates a new quiz via Gemini AI.
+    """
+
     authentication_classes = [CookieJWTAuthentication]
     permission_classes     = [IsAuthenticated]
 
     def get(self, request):
+        """
+        Returns a list of all quizzes that belong to the authenticated user,
+        with all nested questions pre-fetched in a single query.
+        """
         quizzes = Quiz.objects.filter(owner=request.user).prefetch_related('questions')
         serializer = QuizSerializer(quizzes, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
+        """
+        Generates and saves a new quiz from a YouTube video URL.
+
+        Workflow:
+          1. Validates that a YouTube URL was provided and is recognisable.
+          2. Downloads the audio via yt-dlp and transcribes it with Gemini.
+          3. Uses Gemini to produce 10 multiple-choice questions from the transcript.
+          4. Persists the Quiz and all Questions to the database.
+
+        Expects: { "url": "<youtube_url>" }
+        Returns 201 with the created quiz on success.
+        Returns 400 for invalid URLs or AI-related errors, 500 for unexpected failures.
+        """
         url = request.data.get('url', '').strip()
         if not url:
             return Response({'detail': 'URL is required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -55,10 +79,26 @@ class QuizListCreateView(APIView):
 
 
 class QuizDetailView(APIView):
+    """
+    Handles retrieval, partial update, and deletion of a single quiz.
+
+    GET    /api/quizzes/<pk>/  — Returns the quiz with all its questions.
+    PATCH  /api/quizzes/<pk>/  — Partially updates quiz fields.
+    DELETE /api/quizzes/<pk>/  — Permanently deletes the quiz.
+
+    All operations are restricted to the quiz owner.
+    """
+
     authentication_classes = [CookieJWTAuthentication]
     permission_classes     = [IsAuthenticated]
 
     def get(self, request, pk):
+        """
+        Returns a single quiz by its primary key, including all nested questions.
+
+        Returns 404 if the quiz does not exist, 403 if the requesting user
+        is not the owner.
+        """
         try:
             quiz = Quiz.objects.prefetch_related('questions').get(pk=pk)
         except Quiz.DoesNotExist:
@@ -73,6 +113,13 @@ class QuizDetailView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def patch(self, request, pk):
+        """
+        Partially updates a quiz (e.g. title or description).
+
+        Only the fields provided in the request body are updated; all other
+        fields remain unchanged.
+        Returns 404 if not found, 403 if not the owner, 400 on validation error.
+        """
         try:
             quiz = Quiz.objects.prefetch_related('questions').get(pk=pk)
         except Quiz.DoesNotExist:
@@ -90,7 +137,12 @@ class QuizDetailView(APIView):
 
 
     def delete(self, request, pk):
-        """Löscht ein Quiz — nur eigene Quizzes."""
+        """
+        Permanently deletes a quiz and all its associated questions.
+
+        Returns 404 if the quiz does not exist, 403 if the requesting user
+        is not the owner.
+        """
         try:
             quiz = Quiz.objects.get(pk=pk)
         except Quiz.DoesNotExist:

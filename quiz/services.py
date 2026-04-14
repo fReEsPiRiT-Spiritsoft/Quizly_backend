@@ -11,18 +11,44 @@ from django.conf import settings
 
 
 def _get_client() -> genai.Client:
+    """
+    Creates and returns a configured Google Gemini API client.
+
+    The API key is read from Django's settings (originally loaded from the
+    .env file via python-dotenv).
+    """
     return genai.Client(api_key=settings.GEMINI_API_KEY)
 
 
 def extract_video_id(url: str) -> str | None:
-    """Validiert und extrahiert die YouTube-Video-ID."""
+    """
+    Extracts the 11-character YouTube video ID from a given URL.
+
+    Supports the following URL formats:
+      - Standard watch URLs: youtube.com/watch?v=<id>
+      - Short URLs:          youtu.be/<id>
+      - Embed URLs:          youtube.com/embed/<id>
+      - Legacy /v/ URLs:     youtube.com/v/<id>
+
+    Returns None if the URL does not match any recognised YouTube pattern.
+    """
     match = re.search(r'(?:v=|/v/|youtu\.be/|/embed/)([A-Za-z0-9_-]{11})', url)
     return match.group(1) if match else None
 
 
 def get_transcript(url: str) -> str:
     """
+    Downloads the audio from a YouTube video and transcribes it using Gemini.
 
+    Workflow:
+      1. Downloads the audio track as MP3 into a temporary directory via yt-dlp.
+      2. Uploads the audio file to the Gemini File API.
+      3. Requests a verbatim transcription from gemini-2.5-flash-lite.
+      4. Deletes the uploaded file from Gemini after transcription to avoid
+         unnecessary storage usage.
+
+    Raises ValueError if yt-dlp exits with a non-zero return code or if no
+    output file is found after the download.
     """
     client = _get_client()
 
@@ -60,7 +86,7 @@ def get_transcript(url: str) -> str:
         )
 
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-2.5-flash-lite',
             contents=[
                 'Transcribe this audio verbatim. Return only the transcript text, nothing else.',
                 uploaded,
@@ -72,7 +98,23 @@ def get_transcript(url: str) -> str:
 
 
 def generate_quiz_from_transcript(transcript: str, video_url: str) -> dict:
-    """"""
+    """
+    Generates a structured quiz from a video transcript using Gemini.
+
+    Sends a prompt to gemini-2.5-flash-lite requesting exactly 10 multiple-choice
+    questions with 4 distinct options each, returned as structured JSON.
+
+    The returned dict contains:
+      - title (str):       A concise quiz title derived from the transcript topic.
+      - description (str): A short summary of the video (max 150 characters).
+      - questions (list):  10 question objects, each with:
+                             - question_title (str)
+                             - question_options (list of 4 strings)
+                             - answer (str, must be one of question_options)
+      - video_url (str):   The original YouTube URL, appended before returning.
+
+    Raises ValueError if Gemini returns a response that cannot be parsed as JSON.
+    """
     client = _get_client()
 
     prompt = f"""Based on the following transcript, generate a quiz in valid JSON format.
@@ -103,7 +145,7 @@ Transcript:
 {transcript[:6000]}"""
 
     response = client.models.generate_content(
-        model='gemini-2.0-flash',
+        model='gemini-2.5-flash-lite',
         contents=prompt,
         config=types.GenerateContentConfig(
             response_mime_type='application/json',

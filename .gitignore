@@ -1,13 +1,67 @@
-.venv/
+# ====================
+# Python
+# ====================
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
-.env
-.env.*
-venv/
-.idea/
-.vscode/
+*.pyd
+*.so
+*.egg
 *.egg-info/
 dist/
 build/
+.eggs/
+wheels/
+
+# ====================
+# Virtual environments
+# ====================
+.venv/
+venv/
+env/
+ENV/
+
+# ====================
+# Django
+# ====================
 db.sqlite3
+db.sqlite3-journal
+*.log
+media/
+staticfiles/
+local_settings.py
+
+# ====================
+# Environment & secrets
+# ====================
+.env
+.env.*
+!.env.example
+
+# ====================
+# IDEs & editors
+# ====================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ====================
+# Testing & coverage
+# ====================
+.coverage
+.tox/
+htmlcov/
+.pytest_cache/
+coverage.xml
+*.cover
+
+# ====================
+# Temporary files
+# ====================
+tmp/
+temp/
+*.tmp

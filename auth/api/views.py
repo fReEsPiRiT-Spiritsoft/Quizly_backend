@@ -122,9 +122,9 @@ class LogoutView(APIView):
         if refresh_token_str:
             try:
                 token = RefreshToken(refresh_token_str)
-                token.blacklist()       # macht den Refresh-Token serverseitig ungültig
+                token.blacklist()       
             except (TokenError, Exception):
-                pass                    # Token schon abgelaufen → trotzdem Cookies löschen
+                pass                    
 
         response = Response(
             {'detail': 'Log-Out successfully! All Tokens will be deleted. Refresh token is now invalid.'},
@@ -159,8 +159,6 @@ class TokenRefreshView(APIView):
 
         try:
             refresh = RefreshToken(refresh_token_str)
-
-            # Token rotieren: altes Token blacklisten, neues generieren
             if settings.SIMPLE_JWT.get('BLACKLIST_AFTER_ROTATION', False):
                 try:
                     refresh.blacklist()
